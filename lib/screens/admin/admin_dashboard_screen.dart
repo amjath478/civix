@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/database_service.dart';
 import '../../utils/helpers.dart';
 import '../../utils/constants.dart';
+import 'admin_issues_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -213,8 +214,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(AppConstants.mediumRadius),
                                   onTap: () {
-                                    // Navigate to issues screen
-                                    DefaultTabController.of(context).animateTo(1);
+                                    // Navigate to AdminIssuesScreen
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const AdminIssuesScreen(),
+                                      ),
+                                    );
                                   },
                                   child: const Padding(
                                     padding: EdgeInsets.all(AppConstants.largeSpacing),
