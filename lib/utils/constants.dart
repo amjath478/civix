@@ -6,10 +6,11 @@ class AppConstants {
 
   // Issue categories
   static const List<String> issueCategories = [
-    'Road',
-    'Garbage',
-    'Water',
-    'Streetlight',
+    'Road Works',
+    'Waste Management',
+    'Water authority',
+    'Public infrastructure',
+    'Animal and Pest control',
     'Other',
   ];
 

@@ -61,16 +61,25 @@ class Helpers {
 
   // Get category icon
   static IconData getCategoryIcon(String category) {
-    switch (category.toLowerCase()) {
+    final key = category.toLowerCase().trim();
+    switch (key) {
+      case 'road works':
       case 'road':
-        // Use a valid icon for road category
-        return Icons.directions_car; // or Icons.road_outlined if available in your Flutter version
+        return Icons.directions_car;
+      case 'waste management':
       case 'garbage':
         return Icons.delete;
+      case 'water authority':
       case 'water':
         return Icons.water_drop;
+      case 'public infrastructure':
       case 'streetlight':
-        return Icons.lightbulb;
+        return Icons.account_tree; // generic infrastructure icon
+      case 'animal and pest control':
+      case 'animal':
+      case 'pest':
+        return Icons.pets;
+      case 'other':
       default:
         return Icons.report_problem;
     }
