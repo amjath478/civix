@@ -42,20 +42,39 @@ class IssueModel {
   }
 
   factory IssueModel.fromJson(String id, Map<String, dynamic> json) {
+    DateTime createdAt;
+    try {
+      if (json['createdAt'] is String) {
+        createdAt = DateTime.parse(json['createdAt']);
+      } else if (json['createdAt'] is int) {
+        // If stored as timestamp
+        createdAt = DateTime.fromMillisecondsSinceEpoch(json['createdAt']);
+      } else {
+        createdAt = DateTime.now();
+      }
+    } catch (e) {
+      createdAt = DateTime.now();
+    }
+    List<String> upvotedBy;
+    try {
+      upvotedBy = List<String>.from(json['upvotedBy'] ?? []);
+    } catch (e) {
+      upvotedBy = [];
+    }
     return IssueModel(
       id: id,
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
-      category: json['category'] ?? '',
-      imageUrl: json['imageUrl'],
-      location: json['location'] != null 
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      imageUrl: json['imageUrl']?.toString(),
+      location: json['location'] != null && json['location'] is Map<String, dynamic>
           ? LocationData.fromJson(json['location'])
           : null,
-      status: json['status'] ?? 'Pending',
-      createdBy: json['createdBy'] ?? '',
-      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      upvotes: json['upvotes'] ?? 0,
-      upvotedBy: List<String>.from(json['upvotedBy'] ?? []),
+      status: json['status']?.toString() ?? 'Pending',
+      createdBy: json['createdBy']?.toString() ?? '',
+      createdAt: createdAt,
+      upvotes: (json['upvotes'] is int) ? json['upvotes'] : int.tryParse(json['upvotes']?.toString() ?? '0') ?? 0,
+      upvotedBy: upvotedBy,
     );
   }
 

@@ -22,17 +22,27 @@ class DatabaseService {
   Stream<List<IssueModel>> getAllIssues() {
     return _database.child('issues').onValue.map((event) {
       final List<IssueModel> issues = [];
+      final List<String> skippedEntries = [];
       if (event.snapshot.exists) {
-        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-        data.forEach((key, value) {
-          final issue = IssueModel.fromJson(
-            key, 
-            Map<String, dynamic>.from(value)
-          );
-          issues.add(issue);
+        final rawData = event.snapshot.value as Map<Object?, Object?>;
+        rawData.forEach((key, value) {
+          try {
+            if (value is Map) {
+              final issueMap = value.map((k, v) => MapEntry(k.toString(), v));
+              final issue = IssueModel.fromJson(key.toString(), Map<String, dynamic>.from(issueMap));
+              issues.add(issue);
+            } else {
+              skippedEntries.add(key.toString());
+            }
+          } catch (e) {
+            skippedEntries.add(key.toString());
+          }
         });
         // Sort by creation date (newest first)
         issues.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        if (skippedEntries.isNotEmpty) {
+          print('Skipped malformed issue entries: ${skippedEntries.join(", ")}');
+        }
       }
       return issues;
     });
@@ -47,17 +57,28 @@ class DatabaseService {
         .onValue
         .map((event) {
       final List<IssueModel> issues = [];
+      final List<String> skippedEntries = [];
       if (event.snapshot.exists) {
-        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-        data.forEach((key, value) {
-          final issue = IssueModel.fromJson(
-            key, 
-            Map<String, dynamic>.from(value)
-          );
-          issues.add(issue);
+        final rawData = event.snapshot.value as Map<Object?, Object?>;
+        rawData.forEach((key, value) {
+          try {
+            if (value is Map) {
+              final issueMap = value.map((k, v) => MapEntry(k.toString(), v));
+              final issue = IssueModel.fromJson(key.toString(), Map<String, dynamic>.from(issueMap));
+              issues.add(issue);
+            } else {
+              skippedEntries.add(key.toString());
+            }
+          } catch (e) {
+            skippedEntries.add(key.toString());
+          }
         });
         // Sort by creation date (newest first)
         issues.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        if (skippedEntries.isNotEmpty) {
+          // Optionally log skipped entries for debugging
+          print('Skipped malformed issue entries: ${skippedEntries.join(", ")}');
+        }
       }
       return issues;
     });
