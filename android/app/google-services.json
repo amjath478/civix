@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "991449552764",
+    "firebase_url": "https://civicx-3a95f-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "civicx-3a95f",
+    "storage_bucket": "civicx-3a95f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:991449552764:android:a2d1c44b03f4ff6a7a36f9",
+        "android_client_info": {
+          "package_name": "com.example.civicx"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "991449552764-82cdn19eurv1v7sn2m8d83moh1rvk273.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD7WuJudEZBD6q8Y7swKcR4Csc18FhPbfo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "991449552764-82cdn19eurv1v7sn2m8d83moh1rvk273.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

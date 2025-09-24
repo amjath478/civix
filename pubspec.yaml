@@ -1,0 +1,52 @@
+name: civicx
+description: "Crowdsourced Civic Issue Reporting & Resolution System"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.1.0 <4.0.0'
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Firebase dependencies
+  firebase_core: ^4.1.1
+  firebase_auth: ^6.1.0
+  firebase_database: ^12.0.2
+  firebase_storage: ^13.0.2
+  firebase_messaging: ^16.0.2
+  google_sign_in: ^6.1.5
+  
+  # UI dependencies
+  cupertino_icons: ^1.0.2
+  flutter_localizations:
+    sdk: flutter
+  
+  # Utility dependencies
+  image_picker: ^1.0.4
+  geolocator: ^14.0.2
+  permission_handler: ^12.0.1
+  intl: ^0.20.2
+  cached_network_image: ^3.3.1
+  flutter_launcher_icons: ^0.14.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
