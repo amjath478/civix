@@ -284,9 +284,8 @@ class _IssueDetailScreenState extends State<IssueDetailScreen> {
                             ),
                             const SizedBox(height: AppConstants.smallSpacing),
                             Text(
-                              _issue.location!.address ?? 
-                                  'Lat: ${_issue.location!.latitude.toStringAsFixed(6)}, '
-                                  'Lng: ${_issue.location!.longitude.toStringAsFixed(6)}',
+                              _issue.address ?? _issue.location!.address ??
+                                  'Lat: ${_issue.location!.latitude.toStringAsFixed(6)}, Lng: ${_issue.location!.longitude.toStringAsFixed(6)}',
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ],

@@ -267,9 +267,9 @@ class IssueCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        issue.location!.address ?? 
-                            'Lat: ${issue.location!.latitude.toStringAsFixed(4)}, '
-                            'Lng: ${issue.location!.longitude.toStringAsFixed(4)}',
+                        issue.address ??
+                            issue.location!.address ??
+                            'Lat: ${issue.location!.latitude.toStringAsFixed(4)}, Lng: ${issue.location!.longitude.toStringAsFixed(4)}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Colors.grey[600],
                         ),

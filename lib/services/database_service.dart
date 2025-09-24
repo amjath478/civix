@@ -12,10 +12,54 @@ class DatabaseService {
     try {
       final issueRef = _database.child('issues').push();
       final issueWithId = issue.copyWith(id: issueRef.key!);
-      await issueRef.set(issueWithId.toJson());
+
+      // Prepare map and include top-level 'address' for easier querying/display
+      final data = Map<String, dynamic>.from(issueWithId.toJson());
+      final loc = issueWithId.location;
+      if (loc != null && loc.address != null && loc.address!.trim().isNotEmpty) {
+        data['address'] = loc.address!.trim();
+      }
+
+      await issueRef.set(data);
     } catch (e) {
       throw 'Failed to create issue: ${e.toString()}';
     }
+  }
+
+  // One-time migration helper: copy location.address -> top-level address for existing issues
+  // Returns number of records updated.
+  Future<int> migrateAddressToTopLevel() async {
+    int updated = 0;
+    try {
+      final snapshot = await _database.child('issues').once();
+      if (!snapshot.snapshot.exists) return updated;
+
+      final data = Map<String, dynamic>.from(snapshot.snapshot.value as Map);
+      for (final entry in data.entries) {
+        final key = entry.key.toString();
+        final value = entry.value;
+        if (value is Map) {
+          final map = Map<String, dynamic>.from(value);
+          // if top-level address exists, skip
+          if (map.containsKey('address') && map['address'] != null && map['address'].toString().trim().isNotEmpty) continue;
+
+          // try to pull location.address
+          final loc = map['location'];
+          String? addr;
+          if (loc is Map && loc['address'] != null && loc['address'].toString().trim().isNotEmpty) {
+            addr = loc['address'].toString().trim();
+          }
+
+          if (addr != null) {
+            await _database.child('issues').child(key).update({'address': addr});
+            updated++;
+          }
+        }
+      }
+    } catch (e) {
+      throw 'Failed to migrate addresses: ${e.toString()}';
+    }
+    return updated;
   }
 
   // Get all issues

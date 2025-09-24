@@ -5,6 +5,7 @@ class IssueModel {
   final String category;
   final String? imageUrl;
   final LocationData? location;
+  final String? address;
   final String status; // 'Pending', 'In Progress', 'Resolved'
   final String createdBy;
   final DateTime createdAt;
@@ -18,6 +19,7 @@ class IssueModel {
     required this.category,
     this.imageUrl,
     this.location,
+    this.address,
     required this.status,
     required this.createdBy,
     required this.createdAt,
@@ -38,6 +40,7 @@ class IssueModel {
       'createdAt': createdAt.toIso8601String(),
       'upvotes': upvotes,
       'upvotedBy': upvotedBy,
+      'address': address,
     };
   }
 
@@ -61,15 +64,48 @@ class IssueModel {
     } catch (e) {
       upvotedBy = [];
     }
+  // Try to construct location from several possible shapes to support legacy data
+    LocationData? location;
+  String? address;
+    try {
+      if (json['location'] != null) {
+        if (json['location'] is Map<String, dynamic>) {
+          location = LocationData.fromJson(Map<String, dynamic>.from(json['location']));
+        } else if (json['location'] is String) {
+          // If old data stored location as a single string address
+          location = LocationData(latitude: 0.0, longitude: 0.0, address: json['location'].toString());
+        }
+      }
+
+      // Fallbacks: top-level 'address' or 'locationAddress'
+      if (location == null) {
+        final altAddress = json['address'] ?? json['locationAddress'] ?? json['location_address'];
+        if (altAddress != null && altAddress.toString().trim().isNotEmpty) {
+          location = LocationData(latitude: 0.0, longitude: 0.0, address: altAddress.toString());
+        }
+      }
+      } catch (e) {
+      location = null;
+    }
+
+    // top-level address fallbacks
+    try {
+      address = json['address']?.toString();
+      if (address == null || address.trim().isEmpty) {
+        address = json['locationAddress']?.toString() ?? json['location_address']?.toString();
+      }
+    } catch (_) {
+      address = null;
+    }
+
     return IssueModel(
       id: id,
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       category: json['category']?.toString() ?? '',
-      imageUrl: json['imageUrl']?.toString(),
-      location: json['location'] != null && json['location'] is Map<String, dynamic>
-          ? LocationData.fromJson(json['location'])
-          : null,
+  imageUrl: json['imageUrl']?.toString(),
+  location: location,
+  address: address,
       status: json['status']?.toString() ?? 'Pending',
       createdBy: json['createdBy']?.toString() ?? '',
       createdAt: createdAt,
@@ -127,10 +163,34 @@ class LocationData {
   }
 
   factory LocationData.fromJson(Map<String, dynamic> json) {
+    double parseDouble(dynamic v) {
+      if (v == null) return 0.0;
+      if (v is double) return v;
+      if (v is int) return v.toDouble();
+      final s = v.toString();
+      return double.tryParse(s) ?? 0.0;
+    }
+
+    String? parseAddress(Map<String, dynamic> j) {
+      final possible = [
+        'address',
+        'locationAddress',
+        'location_address',
+        'place',
+        'locality',
+      ];
+      for (var key in possible) {
+        if (j.containsKey(key) && j[key] != null && j[key].toString().trim().isNotEmpty) {
+          return j[key].toString();
+        }
+      }
+      return null;
+    }
+
     return LocationData(
-      latitude: (json['latitude'] ?? 0.0).toDouble(),
-      longitude: (json['longitude'] ?? 0.0).toDouble(),
-      address: json['address'],
+      latitude: parseDouble(json['latitude'] ?? json['lat'] ?? json['lati'] ?? 0.0),
+      longitude: parseDouble(json['longitude'] ?? json['lng'] ?? json['lon'] ?? 0.0),
+      address: parseAddress(json),
     );
   }
 }

@@ -335,6 +335,21 @@ class AdminIssueCard extends StatelessWidget {
                                 color: Colors.grey[600],
                               ),
                             ),
+                            const SizedBox(width: AppConstants.smallSpacing),
+                            if (issue.location != null || (issue.address != null && issue.address!.trim().isNotEmpty)) ...[
+                              const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  issue.address ?? issue.location!.address ??
+                                      'Lat: ${issue.location!.latitude.toStringAsFixed(4)}, Lng: ${issue.location!.longitude.toStringAsFixed(4)}',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
