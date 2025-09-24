@@ -1,11 +1,11 @@
 import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../models/issue_model.dart';
 import 'dart:io';
 
 class DatabaseService {
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
-  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // Create issue
   Future<void> createIssue(IssueModel issue) async {
@@ -107,15 +107,28 @@ class DatabaseService {
     }
   }
 
-  // Upload image to Firebase Storage
+  // Upload image to Cloudinary
   Future<String> uploadImage(File imageFile, String path) async {
     try {
-      final ref = _storage.ref().child(path);
-      final uploadTask = await ref.putFile(imageFile);
-      final downloadUrl = await uploadTask.ref.getDownloadURL();
-      return downloadUrl;
+      final cloudinaryUrl = 'https://api.cloudinary.com/v1_1/dfctkbew3/image/upload';
+  // Use the provided unsigned upload preset for Cloudinary
+  final uploadPreset = 'civicx';
+
+      final request = http.MultipartRequest('POST', Uri.parse(cloudinaryUrl))
+        ..fields['upload_preset'] = uploadPreset
+        ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
+
+      final response = await request.send();
+      final resStr = await response.stream.bytesToString();
+      final resJson = json.decode(resStr);
+
+      if (response.statusCode == 200 && resJson['secure_url'] != null) {
+        return resJson['secure_url'];
+      } else {
+        throw 'Cloudinary upload failed: \\${resJson['error']['message'] ?? 'Unknown error'}';
+      }
     } catch (e) {
-      throw 'Failed to upload image: ${e.toString()}';
+      throw 'Failed to upload image: \\${e.toString()}';
     }
   }
 
