@@ -20,12 +20,12 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _addressController = TextEditingController();
-  
+
   final DatabaseService _databaseService = DatabaseService();
   final LocationService _locationService = LocationService();
   final ImagePicker _imagePicker = ImagePicker();
 
-  String _selectedCategory = AppConstants.issueCategories[0];
+  String _selectedCategory = AppConstants.issueCategories.isNotEmpty ? AppConstants.issueCategories[0] : 'General';
   File? _selectedImage;
   LocationData? _currentLocation;
   bool _isLoading = false;
@@ -41,44 +41,35 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final XFile? image = await _imagePicker.pickImage(
+      final XFile? picked = await _imagePicker.pickImage(
         source: source,
         maxWidth: 1024,
         maxHeight: 1024,
         imageQuality: 80,
       );
-
-      if (image != null) {
-        setState(() {
-          _selectedImage = File(image.path);
-        });
+      if (picked != null) {
+        setState(() => _selectedImage = File(picked.path));
       }
     } catch (e) {
-      if (mounted) {
-        Helpers.showSnackBar(context, 'Failed to pick image: ${e.toString()}', isError: true);
-      }
+      if (mounted) Helpers.showSnackBar(context, 'Image pick failed: ${e.toString()}', isError: true);
     }
   }
 
   Future<void> _getCurrentLocation() async {
     setState(() => _isLoadingLocation = true);
-
     try {
-      final location = await _locationService.getCurrentLocation();
+      final loc = await _locationService.getCurrentLocation();
+      final address = (loc?.address ?? '').trim();
       setState(() {
-        _currentLocation = location;
-        _addressController.text = location?.address ?? '';
+        // store address-only: lat/lng set to neutral values (0.0)
+        _currentLocation = LocationData(latitude: 0.0, longitude: 0.0, address: address);
+        _addressController.text = address;
       });
-
-      if (mounted) {
-        Helpers.showSnackBar(context, 'Location captured successfully!');
-      }
+      if (mounted) Helpers.showSnackBar(context, 'Location captured');
     } catch (e) {
-      if (mounted) {
-        Helpers.showSnackBar(context, e.toString(), isError: true);
-      }
+      if (mounted) Helpers.showSnackBar(context, 'Failed to get location: ${e.toString()}', isError: true);
     } finally {
-      setState(() => _isLoadingLocation = false);
+      if (mounted) setState(() => _isLoadingLocation = false);
     }
   }
 
@@ -91,25 +82,28 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    final address = (_currentLocation?.address ?? _addressController.text).trim();
+    if (address.isEmpty) {
+      Helpers.showSnackBar(context, 'Location is required. Use current location or enter address.', isError: true);
+      return;
+    }
 
+    setState(() => _isLoading = true);
     try {
       String? imageUrl;
-      
-      // Upload image if selected
       if (_selectedImage != null) {
         final imagePath = '${AppConstants.issueImagesPath}/${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
         imageUrl = await _databaseService.uploadImage(_selectedImage!, imagePath);
       }
 
-      // Create issue
       final issue = IssueModel(
         id: '',
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         category: _selectedCategory,
         imageUrl: imageUrl,
-        location: _currentLocation,
+        // save address-only location (lat/lng neutral)
+        location: LocationData(latitude: 0.0, longitude: 0.0, address: address),
         status: 'Pending',
         createdBy: user.uid,
         createdAt: DateTime.now(),
@@ -118,17 +112,13 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       await _databaseService.createIssue(issue);
 
       if (mounted) {
-        Helpers.showSnackBar(context, 'Issue reported successfully!');
+        Helpers.showSnackBar(context, 'Issue submitted');
         _resetForm();
       }
     } catch (e) {
-      if (mounted) {
-        Helpers.showSnackBar(context, 'Failed to report issue: ${e.toString()}', isError: true);
-      }
+      if (mounted) Helpers.showSnackBar(context, 'Submission failed: ${e.toString()}', isError: true);
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -138,10 +128,38 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     _descriptionController.clear();
     _addressController.clear();
     setState(() {
-      _selectedCategory = AppConstants.issueCategories[0];
+      _selectedCategory = AppConstants.issueCategories.isNotEmpty ? AppConstants.issueCategories[0] : 'General';
       _selectedImage = null;
       _currentLocation = null;
     });
+  }
+
+  void _showImageOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -152,8 +170,8 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _resetForm,
-            child: const Text('Clear'),
-          ),
+            child: const Text('Clear', style: TextStyle(color: Colors.white)),
+          )
         ],
       ),
       body: Form(
@@ -163,114 +181,64 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Title field
               TextFormField(
                 controller: _titleController,
                 enabled: !_isLoading,
                 decoration: const InputDecoration(
-                  labelText: 'Issue Title *',
-                  hintText: 'Briefly describe the issue',
+                  labelText: 'Title *',
                   prefixIcon: Icon(Icons.title),
                 ),
                 maxLength: AppConstants.maxTitleLength,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a title';
-                  }
-                  if (value.trim().length < 10) {
-                    return 'Title must be at least 10 characters';
-                  }
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Please enter a title';
+                  if (v.trim().length < 10) return 'Title must be at least 10 characters';
                   return null;
                 },
               ),
-
               const SizedBox(height: AppConstants.mediumSpacing),
 
-              // Category dropdown
               DropdownButtonFormField<String>(
                 value: _selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Category *',
-                  prefixIcon: Icon(Icons.category),
-                ),
-                items: AppConstants.issueCategories.map((category) {
-                  return DropdownMenuItem(
-                    value: category,
-                    child: Row(
-                      children: [
-                        Icon(
-                          Helpers.getCategoryIcon(category),
-                          size: 20,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                        const SizedBox(width: AppConstants.smallSpacing),
-                        Text(category),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                onChanged: _isLoading ? null : (value) {
-                  if (value != null) {
-                    setState(() => _selectedCategory = value);
-                  }
+                decoration: const InputDecoration(labelText: 'Category *', prefixIcon: Icon(Icons.category)),
+                items: AppConstants.issueCategories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                onChanged: _isLoading ? null : (v) {
+                  if (v != null) setState(() => _selectedCategory = v);
                 },
               ),
 
               const SizedBox(height: AppConstants.mediumSpacing),
 
-              // Description field
               TextFormField(
                 controller: _descriptionController,
                 enabled: !_isLoading,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Description *',
-                  hintText: 'Provide detailed information about the issue',
-                  prefixIcon: Icon(Icons.description),
-                  alignLabelWithHint: true,
-                ),
+                decoration: const InputDecoration(labelText: 'Description *', prefixIcon: Icon(Icons.description)),
                 maxLength: AppConstants.maxDescriptionLength,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a description';
-                  }
-                  if (value.trim().length < 20) {
-                    return 'Description must be at least 20 characters';
-                  }
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Please enter a description';
+                  if (v.trim().length < 20) return 'Description must be at least 20 characters';
                   return null;
                 },
               ),
 
               const SizedBox(height: AppConstants.mediumSpacing),
 
-              // Image section
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(AppConstants.mediumSpacing),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Add Photo',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
+                      Text('Photo', style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: AppConstants.smallSpacing),
                       if (_selectedImage != null) ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(AppConstants.smallRadius),
-                          child: Image.file(
-                            _selectedImage!,
-                            height: 200,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                        Image.file(_selectedImage!, height: 180, width: double.infinity, fit: BoxFit.cover),
                         const SizedBox(height: AppConstants.smallSpacing),
                         Row(
                           children: [
                             Expanded(
                               child: OutlinedButton.icon(
-                                onPressed: _isLoading ? null : () => setState(() => _selectedImage = null),
+                                onPressed: () => setState(() => _selectedImage = null),
                                 icon: const Icon(Icons.delete),
                                 label: const Text('Remove'),
                               ),
@@ -278,7 +246,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                             const SizedBox(width: AppConstants.smallSpacing),
                             Expanded(
                               child: OutlinedButton.icon(
-                                onPressed: _isLoading ? null : () => _showImageSourceDialog(),
+                                onPressed: _showImageOptions,
                                 icon: const Icon(Icons.edit),
                                 label: const Text('Change'),
                               ),
@@ -287,9 +255,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                         ),
                       ] else ...[
                         OutlinedButton.icon(
-                          onPressed: _isLoading ? null : _showImageSourceDialog,
+                          onPressed: _showImageOptions,
                           icon: const Icon(Icons.add_a_photo),
-                          label: const Text('Add Photo'),
+                          label: const Text('Add Photo (optional)'),
                         ),
                       ],
                     ],
@@ -299,74 +267,36 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
               const SizedBox(height: AppConstants.mediumSpacing),
 
-              // Location section
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(AppConstants.mediumSpacing),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Location',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
+                      Text('Location *', style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: AppConstants.smallSpacing),
-                      
-                      // GPS location button
                       Row(
                         children: [
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: (_isLoading || _isLoadingLocation) ? null : _getCurrentLocation,
-                              icon: _isLoadingLocation
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.my_location),
-                              label: Text(_isLoadingLocation ? 'Getting Location...' : 'Use Current Location'),
+                            child: ElevatedButton.icon(
+                              onPressed: _isLoadingLocation ? null : _getCurrentLocation,
+                              icon: _isLoadingLocation ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.my_location),
+                              label: Text(_isLoadingLocation ? 'Getting...' : 'Use Current Location'),
                             ),
                           ),
                         ],
                       ),
-                      
-                      if (_currentLocation != null) ...[
-                        const SizedBox(height: AppConstants.smallSpacing),
-                        Container(
-                          padding: const EdgeInsets.all(AppConstants.smallSpacing),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(AppConstants.smallRadius),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.check_circle, color: Colors.green, size: 16),
-                              const SizedBox(width: AppConstants.smallSpacing),
-                              Expanded(
-                                child: Text(
-                                  'Location captured: ${_currentLocation!.address}',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.green[700],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      
                       const SizedBox(height: AppConstants.smallSpacing),
-                      
-                      // Manual address input
                       TextFormField(
                         controller: _addressController,
                         enabled: !_isLoading,
-                        decoration: const InputDecoration(
-                          labelText: 'Address (Optional)',
-                          hintText: 'Enter or modify the address',
-                          prefixIcon: Icon(Icons.location_on),
-                        ),
+                        decoration: const InputDecoration(labelText: 'Address *', prefixIcon: Icon(Icons.location_on)),
+                        validator: (v) {
+                          if ((v == null || v.trim().isEmpty) && (_currentLocation == null || (_currentLocation?.address ?? '').trim().isEmpty)) {
+                            return 'Location is required.';
+                          }
+                          return null;
+                        },
                       ),
                     ],
                   ),
@@ -375,48 +305,13 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
               const SizedBox(height: AppConstants.largeSpacing),
 
-              // Submit button
               ElevatedButton.icon(
                 onPressed: _isLoading ? null : _submitIssue,
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.send),
+                icon: _isLoading ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send),
                 label: Text(_isLoading ? 'Submitting...' : 'Submit Issue'),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  void _showImageSourceDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Camera'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery);
-              },
-            ),
-          ],
         ),
       ),
     );

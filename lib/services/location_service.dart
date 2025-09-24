@@ -1,4 +1,5 @@
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart' as gc;
 import '../models/issue_model.dart';
 
 class LocationService {
@@ -51,10 +52,30 @@ class LocationService {
         timeLimit: const Duration(seconds: 10),
       );
 
+      // Try reverse geocoding to get a human readable place (city/town/locality)
+      String address = '';
+      try {
+        final placemarks = await gc.placemarkFromCoordinates(position.latitude, position.longitude);
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          // Prefer locality (city/town). Fallback to subAdministrativeArea, administrativeArea or country.
+          address = (p.locality ?? '').trim();
+          if (address.isEmpty) address = (p.subAdministrativeArea ?? '').trim();
+          if (address.isEmpty) address = (p.administrativeArea ?? '').trim();
+          if (address.isEmpty) address = (p.country ?? '').trim();
+        }
+      } catch (e) {
+        // Ignore reverse geocoding failures and fallback to lat/lng string below
+      }
+
+      if (address.isEmpty) {
+        address = 'Lat: ${position.latitude.toStringAsFixed(6)}, Lng: ${position.longitude.toStringAsFixed(6)}';
+      }
+
       return LocationData(
         latitude: position.latitude,
         longitude: position.longitude,
-        address: 'Lat: ${position.latitude.toStringAsFixed(6)}, Lng: ${position.longitude.toStringAsFixed(6)}',
+        address: address,
       );
     } catch (e) {
       throw 'Failed to get current location: ${e.toString()}';
